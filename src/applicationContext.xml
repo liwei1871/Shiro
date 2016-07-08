@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	<!-- 配置CacheManager
+		需要加入EHCache的jar包
+	 -->
+	<bean id="cacheManager" class="org.apache.shiro.cache.ehcache.EhCacheManager">
+		<property name="cacheManagerConfigFile" value="classpath:ehcache.xml"/>
+	</bean>
+
+	<!-- 
+		配置Realm
+		1.创建并继承AuthorizingRealm
+		2.把创建的类配置到IOC容器中
+	 -->
+	<bean id="jdbcRealm" class="com.atguigu.shiro.MyRealm">
+		<property name="credentialsMatcher">
+			<bean class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+				<property name="hashAlgorithmName" value="MD5"/>
+				<property name="hashIterations" value="1024"/>
+			</bean>
+		</property>
+	</bean>
+
+	<!-- 
+		配置shiro 的securityManager。 shiro最核心的组件，
+	 -->
+	<bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+		<property name="cacheManager" ref="cacheManager"></property>
+		<property name="realm" ref="jdbcRealm"></property>
+	</bean>
+	
+	
+	<!-- 
+		配置 lifecycleBeanPostProcessor
+		可以自动调用配置在IOC容器中shiro bean 的init和destroy方法
+	-->
+	<bean id="lifecycleBeanPostProcessor" class="org.apache.shiro.spring.LifecycleBeanPostProcessor"></bean>
+	
+	
+	<!-- 
+		配置 DefaultAdvisorAutoProxyCreator 和 AuthorizationAttributeSourceAdvisor
+		可以在Spring中使用shiro 的权限注解，必须在配置了lifecycleBeanPostProcessor才可以使用
+	-->
+	<bean class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator"
+		depends-on="lifecycleBeanPostProcessor"></bean>
+	<bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+		<property name="securityManager" ref="securityManager"></property>
+	</bean>
+	
+	<!-- 配置 Shiro Filter -->
+	<bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <property name="securityManager" ref="securityManager"/>
+        <property name="loginUrl" value="/login.jsp"/>
+        <property name="unauthorizedUrl" value="/unauthorized.jsp"/>
+         <!-- 
+        	配置实际上需要拦截的 URL 
+        	1. anon: 可以被匿名访问. 即即使没有登录的情况下, 也可以访问
+        	2. authc: 必须登录后才可以访问
+        	3. 注意: URL 权限采取第一次匹配优先的方式
+        -->
+        <property name="filterChainDefinitions">
+            <value>
+                /login.jsp = anon
+                /login-shiro = anon
+                /logout = logout
+                
+                /user.jsp = roles[user]
+                /admin.jsp = roles[admin]
+                
+                /** = authc
+            </value>
+        </property>
+    </bean>
+	
+	
+	<bean id="myShiroService" class="com.atguigu.shiro.MyShiroService"></bean>
+
+</beans>
